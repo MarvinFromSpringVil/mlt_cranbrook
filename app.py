@@ -74,4 +74,5 @@ def process_image():
         return jsonify({'error': '이미지 처리 중 오류가 발생했습니다. 다시 시도해주세요.'}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.getenv("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
