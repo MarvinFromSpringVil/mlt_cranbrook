@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MSEF Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar {
+            height: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #e5e7eb;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #6b7280;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #4b5563;
+        }
+        .selected {
+            border: 4px solid #3b82f6;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-r from-green-100 via-lime-100 to-emerald-100 min-h-screen">
+    <header class="fixed top-0 left-0 w-full bg-white shadow-md z-10">
+        <div class="container mx-auto px-4 py-4 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="로고" class="h-10 w-10 object-contain">
+                <h1 class="text-2xl font-bold text-gray-800">Jiwoo Sim [Cranbrook Schools]</h1>
+            </div>
+            <nav class="flex space-x-6">
+                <a href="/" class="text-gray-600 hover:text-blue-600 transition-colors duration-300">Home</a>
+                <a href="#info" class="text-gray-600 hover:text-blue-600 transition-colors duration-300"> </a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container mx-auto py-24 px-4">
+        <h1 class="text-4xl font-extrabold text-center mb-10 text-gray-800 animate-fade-in">
+            High-Precision Microbial Colony Counting Using a Machine Learning System with Enhanced Small Object Detection via Pixel-Wise Probability Mapping
+        </h1>
+        <div class="flex overflow-x-auto space-x-6 p-6 custom-scrollbar snap-x snap-mandatory">
+            {% for image in images %}
+                <div class="flex-none w-80 snap-center">
+                    <div class="relative group cursor-pointer" onclick="selectImage('{{ image }}', this)">
+                        <img src="{{ url_for('static', filename='images/' + image) }}" alt="{{ image }}"
+                             class="w-full h-80 object-cover rounded-xl shadow-lg transition-transform duration-300 group-hover:scale-105 group-hover:shadow-2xl">
+                        <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity duration-300 rounded-xl flex items-center justify-center">
+                            <p class="text-white text-lg font-semibold opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                {{ image }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+        <div class="text-center mt-6">
+            <button id="processBtn" class="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed" onclick="processImage()" disabled>
+                Process
+            </button>
+        </div>
+        <div id="result" class="mt-6 text-center hidden">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">[left] Detection result(previous method), [mid] Mask result (ours), and [right] Mask overlapped result (ours)</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <img id="processedImage1" src="" alt="Processed Image 1" class="max-w-full h-auto rounded-xl shadow-lg mx-auto" onerror="this.src='/static/placeholder.jpg'; this.alt='Image not found';">
+                <img id="processedImage2" src="" alt="Processed Image 2" class="max-w-full h-auto rounded-xl shadow-lg mx-auto" onerror="this.src='/static/placeholder.jpg'; this.alt='Image not found';">
+                <img id="processedImage3" src="" alt="Processed Image 3" class="max-w-full h-auto rounded-xl shadow-lg mx-auto" onerror="this.src='/static/placeholder.jpg'; this.alt='Image not found';">
+            </div>
+        </div>
+        <section id="info" class="mt-12">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">How to use</h2>
+            <p class="text-gray-600">Select the arag plate image and click the Process button!!</p>
+        </section>
+    </div>
+
+    <script>
+        let selectedImage = null;
+
+        tailwind.config = {
+            theme: {
+                extend: {
+                    animation: {
+                        'fade-in': 'fadeIn 1s ease-in-out',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        }
+                    }
+                }
+            }
+        }
+
+        function selectImage(imageName, element) {
+            document.querySelectorAll('.group').forEach(el => el.classList.remove('selected'));
+            element.classList.add('selected');
+            selectedImage = imageName;
+            document.getElementById('processBtn').disabled = false;
+            console.log('Selected image:', imageName);
+        }
+
+        function processImage() {
+            if (!selectedImage) {
+                alert('Choose Image!');
+                return;
+            }
+
+            console.log('Processing image:', selectedImage);
+            fetch('/process', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `image_name=${encodeURIComponent(selectedImage)}`
+            })
+            .then(response => {
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Response data:', data);
+                if (data.error) {
+                    alert(data.error);
+                } else if (data.processed_images && data.processed_images.length === 3) {
+                    const resultDiv = document.getElementById('result');
+                    const processedImg1 = document.getElementById('processedImage1');
+                    const processedImg2 = document.getElementById('processedImage2');
+                    const processedImg3 = document.getElementById('processedImage3');
+                    processedImg1.src = `/static/${data.processed_images[0]}`;
+                    processedImg2.src = `/static/${data.processed_images[1]}`;
+                    processedImg3.src = `/static/${data.processed_images[2]}`;
+                    console.log('Image 1 src:', processedImg1.src);
+                    console.log('Image 2 src:', processedImg2.src);
+                    console.log('Image 3 src:', processedImg3.src);
+                    resultDiv.classList.remove('hidden');
+                    resultDiv.scrollIntoView({ behavior: 'smooth' });
+                } else {
+                    alert('Invalid response: Expected 3 images');
+                }
+            })
+            .catch(error => {
+                console.error('Fetch error:', error);
+                alert('이미지 처리 중 오류가 발생했습니다: ' + error.message);
+            });
+        }
+    </script>
+</body>
+</html>
